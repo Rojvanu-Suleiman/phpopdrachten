@@ -1,6 +1,6 @@
 <?php
     // Functie: programma login OOP 
-    // Auteur: Studentnaam
+    // Auteur: Rojvan Suleiman
 
     // Initialisatie
     include 'classes/User.php';
@@ -14,5 +14,6 @@
     $jan = new User();
     $jan->username = "Jan";
     $jan->showUser();
+
 
 ?>
