@@ -1,38 +1,68 @@
 <?php
-// db.php
-// Verantwoordelijk voor database connectie
+// User.php
+// Bevat alle methodes voor gebruikersfunctionaliteit
 
-class Database {
-    private $host = "localhost";
-    private $dbname = "login";
-    private $username = "root";
-    private $password = "";
-    private static $instance = null;
+require_once "db.php";
+
+class User {
     private $conn;
 
-    private function __construct() {
+    public function __construct() {
+        $this->conn = Database::getInstance()->getConnection();
+    }
+
+    // Methode om een gebruiker te registreren
+    public function registerUser($gebruikersnaam, $wachtwoord) {
         try {
-            $this->conn = new PDO(
-                "mysql:host={$this->host};dbname={$this->dbname};charset=utf8mb4",
-                $this->username,
-                $this->password
-            );
-            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            // Controleer of gebruiker al bestaat
+            $check = $this->conn->prepare("SELECT * FROM user WHERE gebruikersnaam = :gebruikersnaam");
+            $check->bindParam(':gebruikersnaam', $gebruikersnaam);
+            $check->execute();
+
+            if ($check->rowCount() > 0) {
+                return "Gebruiker bestaat al.";
+            }
+
+            // Hash wachtwoord en voeg toe
+            $hashedPassword = password_hash($wachtwoord, PASSWORD_DEFAULT);
+            $stmt = $this->conn->prepare("INSERT INTO user (gebruikersnaam, wachtwoord) VALUES (:gebruikersnaam, :wachtwoord)");
+            $stmt->bindParam(':gebruikersnaam', $gebruikersnaam);
+            $stmt->bindParam(':wachtwoord', $hashedPassword);
+            $stmt->execute();
+
+            return "Registratie succesvol.";
         } catch (PDOException $e) {
-            die("Verbinding mislukt: " . $e->getMessage());
+            return "Fout bij registratie: " . $e->getMessage();
         }
     }
 
-    // Singleton (altijd 1 verbinding)
-    public static function getInstance() {
-        if (self::$instance === null) {
-            self::$instance = new Database();
+    // Methode om in te loggen
+    public function loginUser($gebruikersnaam, $wachtwoord) {
+        try {
+            $stmt = $this->conn->prepare("SELECT * FROM user WHERE gebruikersnaam = :gebruikersnaam");
+            $stmt->bindParam(':gebruikersnaam', $gebruikersnaam);
+            $stmt->execute();
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($user && password_verify($wachtwoord, $user['wachtwoord'])) {
+                session_start();
+                $_SESSION['user'] = $user['gebruikersnaam'];
+                return "Inloggen gelukt.";
+            } else {
+                return "Ongeldige gebruikersnaam of wachtwoord.";
+            }
+        } catch (PDOException $e) {
+            return "Fout bij inloggen: " . $e->getMessage();
         }
-        return self::$instance;
     }
 
-    public function getConnection() {
-        return $this->conn;
+    // Methode om uit te loggen
+    public function logout() {
+        session_start();
+        session_unset();
+        session_destroy();
+        header("Location: index.php");
+        exit();
     }
 }
 ?>
