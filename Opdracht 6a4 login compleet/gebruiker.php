@@ -1,48 +1,38 @@
 <?php
-class User {
+// db.php
+// Verantwoordelijk voor database connectie
+
+class Database {
+    private $host = "localhost";
+    private $dbname = "login";
+    private $username = "root";
+    private $password = "";
+    private static $instance = null;
     private $conn;
 
-    public function __construct($db) {
-        $this->conn = $db;
-        session_start();
-    }
-
-    
-    public function registerUser($gebruikersnaam, $wachtwoord) {
-        $hash = password_hash($wachtwoord, PASSWORD_DEFAULT);
-        $stmt = $this->conn->prepare("INSERT INTO user (gebruikersnaam, wachtwoord) VALUES (?, ?)");
-        $stmt->bind_param("ss", $gebruikersnaam, $hash);
-        return $stmt->execute();
-    }
-
-   
-    public function loginUser($gebruikersnaam, $wachtwoord) {
-        $stmt = $this->conn->prepare("SELECT wachtwoord FROM user WHERE gebruikersnaam = ?");
-        $stmt->bind_param("s", $gebruikersnaam);
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        if ($result->num_rows === 1) {
-            $row = $result->fetch_assoc();
-            if (password_verify($wachtwoord, $row['wachtwoord'])) {
-                $_SESSION['user'] = $gebruikersnaam;
-                return true;
-            }
+    private function __construct() {
+        try {
+            $this->conn = new PDO(
+                "mysql:host={$this->host};dbname={$this->dbname};charset=utf8mb4",
+                $this->username,
+                $this->password
+            );
+            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        } catch (PDOException $e) {
+            die("Verbinding mislukt: " . $e->getMessage());
         }
-        return false;
     }
 
-    
-    public function logout() {
-        session_unset();
-        session_destroy();
-        header("Location: inloggen.php");
-        exit();
+    // Singleton (altijd 1 verbinding)
+    public static function getInstance() {
+        if (self::$instance === null) {
+            self::$instance = new Database();
+        }
+        return self::$instance;
     }
 
-    
-    public function isLoggedIn() {
-        return isset($_SESSION['user']);
+    public function getConnection() {
+        return $this->conn;
     }
 }
 ?>
