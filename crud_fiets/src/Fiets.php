@@ -79,4 +79,49 @@ class Fiets
         $stmt->execute();
         return $stmt->fetchAll();
     }
+    function printCrudTabel(array $result): void
+{
+    if (count($result) === 0) {
+        echo '<p>Geen fietsen gevonden.</p>';
+        return;
+    }
+
+    $table = '<table>';
+
+    $headers = array_keys($result[0]);
+    $table .= '<tr>';
+    foreach ($headers as $header) {
+        $table .= '<th>' . htmlspecialchars((string)$header) . '</th>';
+    }
+    $table .= '<th colspan=2>Actie</th>';
+    $table .= '</tr>';
+
+    foreach ($result as $row) {
+        $table .= '<tr>';
+        foreach ($row as $cell) {
+            $table .= '<td>' . htmlspecialchars((string)$cell) . '</td>';
+        }
+
+        $id = (int)$row['id'];
+
+        $table .= "<td>
+            <form method='post' action='update.php?id=$id'>
+                <button>Wzg</button>
+            </form>
+        </td>";
+
+        $table .= "<td>
+            <form method='post' action='delete.php?id=$id'>
+                <button>Verwijder</button>
+            </form>
+        </td>";
+
+        $table .= '</tr>';
+    }
+
+    $table .= '</table>';
+
+    echo $table;
+}
+
 }
