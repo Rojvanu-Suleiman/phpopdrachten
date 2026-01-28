@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Producten CRUD Client</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background:#f3f4f6; margin:0; color:#111; }
+    header { background:#111827; color:white; padding:18px; }
+    header h1 { margin:0; font-size:18px; }
+    .container { max-width: 1100px; margin:auto; padding:20px; }
+
+    .card { background:white; padding:16px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,0.08); margin-bottom:16px; }
+
+    .grid { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; }
+    @media (max-width: 900px){ .grid { grid-template-columns:1fr; } }
+
+    label { font-size:13px; color:#444; }
+    input {
+      width:100%;
+      padding:10px 12px;
+      margin-top:6px;
+      border:1px solid #ddd;
+      border-radius:10px;
+      outline:none;
+    }
+    input:focus {
+      border-color:#4f46e5;
+      box-shadow:0 0 0 3px rgba(79,70,229,0.15);
+    }
+
+    button {
+      padding:10px 12px;
+      border:none;
+      border-radius:10px;
+      font-weight:700;
+      cursor:pointer;
+    }
+    .btn { background:#4f46e5; color:white; }
+    .btn:hover { opacity:0.9; }
+    .btn-gray { background:#e5e7eb; color:#111; }
+    .btn-red { background:#ef4444; color:white; }
+
+    .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+
+    .status {
+      background:#f9fafb;
+      border:1px solid #e5e7eb;
+      padding:10px 12px;
+      border-radius:10px;
+      margin-top:12px;
+      font-size:14px;
+      white-space:pre-wrap;
+    }
+
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding:12px; border-bottom:1px solid #eee; text-align:left; font-size:14px; }
+    th { background:#f9fafb; }
+    tr:hover td { background:#fafafa; }
+
+    .small { font-size:12px; color:#666; }
+  </style>
+</head>
+
+<body>
+<header>
+  <h1>Producten CRUD Client</h1>
+</header>
+
+<div class="container">
+
+  <div class="card">
+    <b>API endpoint</b>
+    <div class="small">Staat nu goed: /API/products.php</div>
+
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+      <input id="apiUrl" style="flex:1; min-width:260px;" value="/API/products.php">
+      <button class="btn" onclick="loadProducts()">Refresh</button>
+    </div>
+
+    <div id="status" class="status">Status: klaar</div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin:0 0 10px;">Toevoegen / Bewerken</h2>
+
+    <div class="grid">
+      <div>
+        <label>ID (alleen bij bewerken)</label>
+        <input id="id" disabled placeholder="auto">
+      </div>
+
+      <div>
+        <label>Naam</label>
+        <input id="naam" placeholder="bijv Cola">
+      </div>
+
+      <div>
+        <label>Prijs</label>
+        <input id="prijs" placeholder="bijv 1.99">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" onclick="saveProduct()">Opslaan</button>
+      <button class="btn-gray" onclick="resetForm()">Reset</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin:0 0 10px;">Producten lijst</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:60px;">ID</th>
+          <th>Naam</th>
+          <th style="width:120px;">Prijs</th>
+          <th style="width:180px;">Acties</th>
+        </tr>
+      </thead>
+
+      <tbody id="tbody">
+        <tr><td colspan="4" class="small">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+  const tbody = document.getElementById("tbody");
+  const statusBox = document.getElementById("status");
+
+  function api() {
+    return document.getElementById("apiUrl").value.trim();
+  }
+
+  function setStatus(msg) {
+    statusBox.textContent = msg;
+  }
+
+  function resetForm() {
+    document.getElementById("id").value = "";
+    document.getElementById("naam").value = "";
+    document.getElementById("prijs").value = "";
+    setStatus("Status: form reset");
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function editProduct(p) {
+    document.getElementById("id").value = p.id;
+    document.getElementById("naam").value = p.naam;
+    document.getElementById("prijs").value = p.prijs;
+    setStatus("Status: product geladen om te bewerken");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function loadProducts() {
+    try {
+      setStatus("Status: laden...");
+      tbody.innerHTML = `<tr><td colspan="4" class="small">Loading...</td></tr>`;
+
+      const res = await fetch(api());
+      const text = await res.text();
+
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        setStatus("FOUT: API geeft geen JSON terug.\nPad: " + api() + "\nResponse start:\n" + text.slice(0,120));
+        tbody.innerHTML = `<tr><td colspan="4" class="small">Kan geen data laden</td></tr>`;
+        return;
+      }
+
+      if (!res.ok) {
+        setStatus("FOUT (" + res.status + "): " + (json.error || "Unknown error"));
+        tbody.innerHTML = `<tr><td colspan="4" class="small">Geen data</td></tr>`;
+        return;
+      }
+
+      const items = json.data || [];
+
+      if (items.length === 0) {
+        setStatus("Status: geen producten gevonden");
+        tbody.innerHTML = `<tr><td colspan="4" class="small">Nog geen producten</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = "";
+      for (const p of items) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${p.id}</td>
+          <td><b>${escapeHtml(p.naam)}</b></td>
+          <td>€ ${Number(p.prijs).toFixed(2)}</td>
+          <td>
+            <button class="btn-gray" onclick='editProduct(${JSON.stringify(p)})'>Edit</button>
+            <button class="btn-red" onclick="deleteProduct(${p.id})">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      setStatus("Status: producten geladen (" + items.length + ")");
+    } catch (e) {
+      setStatus("FOUT: " + e.message);
+      tbody.innerHTML = `<tr><td colspan="4" class="small">Error</td></tr>`;
+    }
+  }
+
+  async function saveProduct() {
+    const id = document.getElementById("id").value.trim();
+    const naam = document.getElementById("naam").value.trim();
+    const prijs = document.getElementById("prijs").value.trim();
+
+    if (!naam || !prijs) {
+      setStatus("FOUT: vul naam en prijs in");
+      return;
+    }
+
+    try {
+      setStatus("Status: opslaan...");
+
+      // UPDATE
+      if (id) {
+        const res = await fetch(api() + "?id=" + encodeURIComponent(id), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ naam, prijs })
+        });
+
+        const text = await res.text();
+        let json = {};
+        try { json = JSON.parse(text); } catch {}
+
+        if (!res.ok) {
+          setStatus("FOUT (" + res.status + "): " + (json.error || text));
+          return;
+        }
+
+        setStatus("Status: product bijgewerkt");
+        resetForm();
+        loadProducts();
+        return;
+      }
+
+      // CREATE
+      const res = await fetch(api(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ naam, prijs })
+      });
+
+      const text = await res.text();
+      let json = {};
+      try { json = JSON.parse(text); } catch {}
+
+      if (!res.ok) {
+        setStatus("FOUT (" + res.status + "): " + (json.error || text));
+        return;
+      }
+
+      setStatus("Status: product toegevoegd");
+      resetForm();
+      loadProducts();
+    } catch (e) {
+      setStatus("FOUT: " + e.message);
+    }
+  }
+
+  async function deleteProduct(id) {
+    if (!confirm("Product verwijderen? ID: " + id)) return;
+
+    try {
+      setStatus("Status: verwijderen...");
+
+      const res = await fetch(api() + "?id=" + encodeURIComponent(id), {
+        method: "DELETE"
+      });
+
+      if (res.status === 204) {
+        setStatus("Status: product verwijderd");
+        resetForm();
+        loadProducts();
+        return;
+      }
+
+      const text = await res.text();
+      let json = {};
+      try { json = JSON.parse(text); } catch {}
+
+      setStatus("FOUT (" + res.status + "): " + (json.error || text));
+    } catch (e) {
+      setStatus("FOUT: " + e.message);
+    }
+  }
+
+  loadProducts();
+</script>
+
+</body>
+</html>
